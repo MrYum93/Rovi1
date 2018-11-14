@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-#/***************************************************************************
+#!/usr/bin/python
+# #/***************************************************************************
 # RoVi1 scrip for all exersice Robotcs part
 # Copyright (c) 2018, Mathias W. Madsen <matam14@student.sdu.dk> <mwittenm@gmail.com>
 # All rights reserved.
@@ -38,44 +38,56 @@ YYYY-MM-DD
 '''
 
 #import
-import math
 import sys
 sys.path.append('/home/mathias/RobWork/RobWork/libs/release')
 sys.path.append('/home/mathias/RobWork/RobWorkStudio/libs/release')
+sys.path.append('/home/mathias/RobWork/RobWorkSim/libs/release')
 import rw
 import rws
+import math
 
 class gcs_node:
     def __init__(self):
-
         pass
 
     def robwork_studio(self):
-        # rwstudio = rws.getRobWorkStudio()
-        # // now
-        # load
-        # a
-        # workcell
-        # rwstudio.openWorkCell('some/workcell.wc.xml')
-        # // lets
-        # get
-        # the
-        # workcell
-        # wc = rwstudio.getWorkCell()
-        # print
-        # wc.getName()
+        rwstudio = rws.getRobWorkStudio()
+        # now load a workcell
+        # rwstudio.openWorkCell('/home/mathias/Dropbox/_SDU/9.Semester/RoVi/Robotics/workcells/Kr16WallWorkCell/Scene.wc.xml')
+        rwstudio.openWorkCell("/home/mathias/Dropbox/Scene.wc.xml")
+        # lets get the workcell
+        wc = rwstudio.getWorkCell()
+        print(wc.getName())
         pass
 
-    def test(self):
-        for x in range(5):
-            print(x)
-            if x == 3:
-                break
-        else:
-            print('HAH!')
+    def eaa_calc(self, rot_mat):
+        # This func returns the EAA rot matrix based on parameters from page 47 in robotics notes.
+        # First find x than find if [R_11 + R_22 + R_33 - 1] is smaller or larger than 0
+        #x = 1/2*||R_32 - R_23, R_13 - R_31, R_21 - R_12||
+        x = 1/2 * math.sqrt((rot_mat[3][2] - rot_mat[2][3])**2 +
+                            (rot_mat[1][3] - rot_mat[3][1])**2 +
+                            (rot_mat[2][1] - rot_mat[1][2])**2)
+        req = rot_mat[1][1] + rot_mat[2][2] + rot_mat[3][3] - 1
 
+        if x >= 10**(-6):
+            # Eq. 4.18
+            pass
+        else:
+            if req > 0:
+                # Eq. 4.19
+                pass
+            else:
+                # Eq. 4.20
+                pass
+        return #result
+
+    def parabolic_blend(self, time_before_blend_time, blend_point, vel_one, vel_two, blend_size):
+        # this func returns a parabola between two linear path with different velocities and averages the velocities.
+        parabola = (vel_two - vel_one) / (4 * blend_size) * (time_before_blend_time + blend_size)**2 + \
+                   vel_one * time_before_blend_time + blend_point
+        return parabola
 
 
 if __name__ == '__main__':
     gcs = gcs_node()
-    gcs.test()
+    gcs.robwork_studio()
