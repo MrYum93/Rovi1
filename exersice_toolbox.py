@@ -80,10 +80,19 @@ class gcs_node:
         # print("rotation matrix\n", other_mat)
         return rot_mat
 
-    def rot_mat_from_euler_rpy(self, R, P, Y):
-        rot_mat = np.matrix(((math.cos(R) * math.cos(), math.cos() * math.cos(), math.cos() * math.cos()),
-                             (math.),
-                             (math)))
+    def rot_mat_from_euler_rpy(self, r, p, y):
+        # this class creates a rot matrix about the RPY angles, this can be used to rotate a
+        # frame about the RPY/XYZ axis
+        def c(axis):
+            return  math.cos(axis)
+
+        def s(axis):
+            return math.sin(axis)
+
+        rot_mat = np.matrix(((c(p)*c(y), s(r)*s(p)*c(y)-c(r)*s(y), c(r)*s(p)*c(y)+s(r)*s(y)),
+                             (c(p)*s(y), s(r)*s(p)*s(y)+c(r)*c(y), c(r)*s(p)*s(y)-s(r)*c(y)),
+                             (-s(p), s(r)*c(p), c(r)*c(p))))
+        return rot_mat
 
     def eaa_calc(self, rot_mat):
         # This func returns the EAA rot matrix based on parameters from page 47 in robotics notes.
@@ -115,8 +124,11 @@ class gcs_node:
     def main(self):
         point_a = np.array([1, 2, 3])
         point_b = np.array((3, 2, 1))
-        new_point_a = self.rot_mat_from_two_points(point_a, point_b)
-        pass
+        # new_point_a_b = self.rot_mat_from_two_points(point_a, point_b)
+        # print(new_point_a_b)
+        rpy_rot_mat_1 = self.rot_mat_from_euler_rpy(0, math.pi, 0)
+        rpy_rot_mat_2 = self.rot_mat_from_euler_rpy(math.pi, 0, 0)
+        print(rpy_rot_mat_1, '\n\n', rpy_rot_mat_2)
 
 if __name__ == '__main__':
     gcs = gcs_node()
