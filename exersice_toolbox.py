@@ -39,16 +39,26 @@ YYYY-MM-DD
 
 #import
 import sys
-# sys.path.append('/home/mathias/RobWork/RobWork/libs/release')
-# sys.path.append('/home/mathias/RobWork/RobWorkStudio/libs/release')
-# sys.path.append('/home/mathias/RobWork/RobWorkSim/libs/release')
-# import rw, rws, rwsim
+sys.path.append('/home/mathias/RobWork/RobWork/libs/release')
+sys.path.append('/home/mathias/RobWork/RobWorkStudio/libs/release')
+sys.path.append('/home/mathias/RobWork/RobWorkSim/libs/release')
+import rw, rws, rwsim
 import math
 import numpy as np
 
 class gcs_node:
     def __init__(self):
         pass
+
+    # def rw_studio(self):
+    #     rwstudio = rws.getRobWorkStudio()
+    #     # now load a workcell
+    #     workcell = '/home/mathias/Dropbox/_SDU/9.Semester/RoVi/Robotics/workcells/Kr16WallWorkCell/Scene.wc.xml'
+    #     # rwstudio.openWorkCell(workcell)
+    #     # lets get the workcell
+    #     wc = rwstudio.getWorkCell()
+    #     print(wc.getName())
+    #     pass
 
     def point_a_to_b(self, point_a, point_b):
         new_point_a = np.array(np.zeros(3))
@@ -62,10 +72,6 @@ class gcs_node:
     def point_from_point(self):
         pass
 
-    # Write code which calculates the 3 × 3 rotation matrix given:
-    # • A specification of which axis to rotate around.
-    # • A specification of whether to use fixed frame or Euler rotation.
-    # • The 3 parameters corresponding to the rotation around the individual axes.
     def rot_mat_from_two_points(self, point_a, point_b):
         # makes a rotation matrix from two points. Namely mat a -> mat b || R_A^B
         a = point_a
@@ -136,9 +142,9 @@ class gcs_node:
         point_b = np.array((3, 2, 1))
         # new_point_a_b = self.rot_mat_from_two_points(point_a, point_b)
         # print(new_point_a_b)
-        rpy_rot_mat = self.rpy_to_rot(math.pi, 0, 0)
-        rpy_ang = self.rot_mat_to_rpy_angles(rpy_rot_mat)
-        print(rpy_rot_mat, '\n\n', rpy_ang)
+        # rpy_rot_mat = self.rpy_to_rot(math.pi, 0, 0)
+        # rpy_ang = self.rot_mat_to_rpy_angles(rpy_rot_mat)
+        # print(rpy_rot_mat, '\n\n', rpy_ang)
 
 if __name__ == '__main__':
     gcs = gcs_node()
