@@ -108,12 +108,26 @@ class gcs_node:
             return "singularity with RPY, use quarternions"
         return r, p, y
 
+    def small_rpy_to_rot(self, x, y, z):
+        rot_mat = np.matrix(((1, -z, y),
+                             (z, 1, -x),
+                             (-y, x, 1)))
+        return rot_mat
+
     def trans_mat_hom(self, rot_mat, trans_mat):
         # print(rot_mat, '\n\n', trans_mat, '\n')
         trans_mat = np.insert(rot_mat, 3, trans_mat, axis=1)
         trans_mat = np.insert(trans_mat, 3, [0, 0, 0, 1], axis=0)
         # print(trans_mat)
         return trans_mat
+
+    def hom_to_pos(self, hom_mat):
+        pos_mat = np.array((hom_mat[0, 3], hom_mat[1, 3], hom_mat[2, 3]))
+        return pos_mat
+
+    def hom_to_rot(self, hom_mat):
+        rot_mat = hom_mat[0:3, 0:3]
+        return rot_mat
 
     def eaa_calc(self, rot_mat):
         # This func returns the EAA rot matrix based on parameters from page 47 in robotics notes.
@@ -123,9 +137,9 @@ class gcs_node:
                                (rot_mat[0, 2] - rot_mat[2, 0]) ** 2 +
                                (rot_mat[1, 0] - rot_mat[0, 1]) ** 2)
 
-        x = 1 / 2 * abs_of_rot
+        x = (1 / 2) * abs_of_rot
         cos_part = math.acos((rot_mat[0, 0] + rot_mat[1, 1] + rot_mat[2, 2] - 1)/2)
-        rot_part = np.array([rot_mat[2,1]-rot_mat[1,2], rot_mat[0,2]-rot_mat[2,1], rot_mat[1,0]-rot_mat[0,1]])
+        rot_part = np.array([rot_mat[2, 1]-rot_mat[1, 2], rot_mat[0, 2]-rot_mat[2, 0], rot_mat[1, 0]-rot_mat[0, 1]])
         if x >= 10**(-6):
             # Eq. 4.18
             w_rot = cos_part / abs_of_rot * rot_part
@@ -136,9 +150,12 @@ class gcs_node:
                 pass
             else:
                 # Eq. 4.20
-                w_rot = ((math.pi - 1/2 * abs_of_rot) / math.sqrt(2)) * 1 #TODO missing part of 4.20
+                #  Below this is apended instead of 1:
+                # [a_1*sqrt(1+r_11), a_2*sqrt(1+r_22), a_3*sqrt(1+r_33)]^T Cant remember this anyways
+                w_rot = ((math.pi - 1/2 * abs_of_rot) / math.sqrt(2)) * 1
+                w_rot = 1/2 * rot_part  # This i wrong but is still an answer as i don't understand the above...
                 pass
-        # return  # result
+        return w_rot # result
         # pass
 
     def parabolic_blend(self, time_before_blend_time, blend_point, vel_one, vel_two, blend_size):
@@ -148,7 +165,7 @@ class gcs_node:
         return parabola
 
     def t_base_tcp_test(self):
-        # This method is an example of a concrete exersice from robotics notes, and is generalized in self.t_base_tcp
+        # This method is an example of a concrete exercise from robotics notes, and is generalized in self.t_base_tcp
         tbase1 = self.trans_mat_hom(self.rpy_to_rot(0, 0, math.pi/2), np.array([1.2, 2.3, -3.5])) # revolute
         t12 = self.trans_mat_hom(self.rpy_to_rot(-math.pi/2, 0, 0), np.array([0, 0, 4])) # prismatic
         t2tool = self.trans_mat_hom(self.rpy_to_rot(0, 0, 0), np.array([0, 0, 2]))
@@ -158,8 +175,16 @@ class gcs_node:
         return  np.dot(tbase1, qbase) * np.dot(t12, q1) * t2tool
 
     def t_base_tcp(self, trans_array, trans_array_size, state_vector, state_vecor_size):
-        # This method calculates a trajectory from base to tool given
-        # any number of transformation matrix and state vectors
+        '''
+        This method calculates a trajectory from base to tool given
+            any number of transformation matrix and state vectors
+        :param trans_array:
+        :param trans_array_size:
+        :param state_vector:
+        :param state_vecor_size:
+        :return:
+        '''
+
         dot_list = []
         for i in range(trans_array_size):
             t_new = trans_array[i]
@@ -179,17 +204,133 @@ class gcs_node:
         print("Result\n", result)
         return result
 
+    def make_robot(self, state_vec, joint_len, rot_around_x):
+        '''
+        :param state_vec: describing each frame rotation around z axis
+        :param joint_len: the length between each frame, starting from base -> 1
+        :param rot_around_x: the rotation around x to align z with the joint
+        :return pos list: pos of each frame compared to the base frame
+        :return z list: z axis compared to the base frame
+        '''
+        i = 0
+        x = 0.0
+        y = 0.0
+        z = 0.0
+        pos = np.array((x, y, z))
+        pos_l = []
+        z_b_i = np.array((0.0, 0.0, 0.0))
+        z_l = []
+        for q in state_vec:
+            # print(q[0])
+            if q[1] is 1: #if 1 then revolute
+                x = joint_len[i]*math.sin(q[0])
+                z = joint_len[i]*math.cos(q[0])
+                x_vec = np.array((x, 0, 0))
+                z_vec = np.array((0, 0, z))
+                y_vec = np.cross(x_vec, z_vec)
+                y = y_vec[2]
+                pos += np.array((x, y, z))
+                pos_l.append(pos.copy())
+            else:
+                pass  # TODO pos if not revolute
+
+            rot_mat = self.rpy_to_rot(rot_around_x[i], 0, 0)
+            z_b_i = rot_mat[:, 2]
+            # print(rot_mat)
+            # print(z_b_i, '\n')
+            z_l.append(z_b_i.copy())
+            i += 1
+        # print(pos_l)
+        # print(z_l)
+        return pos_l, z_l
+
+    def jacobian(self, state_vec, pos_list, z_list):
+        '''
+        :param state_vec: used for xi (if it is a rotation of prismatic joint)
+        :param pos_list: pos compared to the base frame
+        :param z_list: z axis compared to the base frame
+        :return a(q): the position part of the jacobian
+        :return b(q): the rotation [z] part of the jacobian
+        '''
+        z_list = np.squeeze(np.asarray(z_list))
+        a_l = []
+        b_l = []
+        for q in range(len(pos_list)-1):
+            xi = state_vec[q][1]
+            a_q = xi*np.cross(z_list[q], (pos_list[len(pos_list)-1] - pos_list[q])) + (1 - xi)*z_list[q]
+            b_q = xi*z_list[q]
+            a_l.append(a_q.copy())
+            b_l.append(b_q.copy())
+
+        return a_l, b_l
+
     def main(self):
-        point_a = np.array([1, 0, 0])
+        point_a = np.array([1, 1/2, 1/4])
         point_b = np.array((3, 2, 1))
-        rot_mat = self.rpy_to_rot(math.pi, 0, 0)
+        rot_mat = self.rpy_to_rot(math.pi/2, 0, 0)
         hom_mat = self.trans_mat_hom(rot_mat, point_a)
 
-        ''' 
-        TODO EAA, have parts of the script but not finished
         '''
-        self.eaa_calc(rot_mat)
+        jacobian test
+        '''
+        state_vec = [[0, 1], [-(math.pi/6), 1], [math.pi/6, 1], [math.pi/2, 1]]
+        joint_len = [3, 0, 2, 2]
+        rot_around_x = [0, math.pi/2, math.pi/2, math.pi/2]
+        robot = self.make_robot(state_vec, joint_len, rot_around_x)  # returns pos in [0] and z in [1]
+        pos_q = robot[0]
+        z_q = robot[1]
+        jaco = self.jacobian(state_vec, pos_q, z_q)
+        print(jaco[0], '\n', jaco[1])
 
+        '''    
+        Small changes in pos and rot 
+        '''
+        # TODO not done
+        # pos_base_tool_desired = np.array([5, 4, 5])
+        # rot_base_tool_desired = self.small_rpy_to_rot(math.pi/2, 0, 0)
+        # T_base_tool_desired = self.trans_mat_hom(rot_base_tool_desired, pos_base_tool_desired)
+        #
+        # pos_base_tool_q_list = []
+        # rot_base_tool_q_list = []
+        #
+        # self.hom_to_pos(hom_mat)
+        # for q in rot_base_tool_q_list:
+        #     # Find small changes only, especially for rotation. dw is a 3x1 vector with rpy angles
+        #
+        #     dp_base_tool_desired = pos_base_tool_desired - pos_base_tool_q_list[q]
+        #
+        #     # dw_b_t_desired is (x, y, z)
+        #     r_desired_dot_r = rot_base_tool_desired * np.transpose(rot_base_tool_q_list[q])
+        #     dw_base_tool_desired = 1/2 * np.array([r_desired_dot_r[2, 1]-r_desired_dot_r[1, 2],
+        #                                            r_desired_dot_r[0, 2]-r_desired_dot_r[2, 0],
+        #                                            r_desired_dot_r[1, 0]-r_desired_dot_r[0, 1]])
+        #     # It is also possible to get r_b_t_desired from dw_b_t_desired:
+        #     # R_b_t_desired = R_rpy(x, y, z)*R_b_t(q)
+        #
+        #
+        # # we wish to get "hom_mat_base_tool_desired" in the end from dp and dw explained below
+        # # state vector is only base and one in this case
+        # state_vector = np.array([0, 3])  # Uniquely determines the pos and orientation of the robot.
+        # # In this case it is for a revolute and prismatic respectively
+        # qbase = self.trans_mat_hom(self.rpy_to_rot(0, 0, state_vector[0]), np.array([0, 0, 0]))
+        # q1 = self.trans_mat_hom(self.rpy_to_rot(0, 0, 0), np.array([0, 0, state_vector[1]]))
+        # # positional part of the infinitesimal displacement
+        # dp_base_tool_desired = 0
+        # # rotational part of the infinitesimal displacement
+        # dw_base_tool_desired = np.array([math.pi/400, math.pi/100, math.pi/300])
+        # print('dw', dw_base_tool_desired)
+        # rot_mat = self.rpy_to_rot(dw_base_tool_desired[[0]], dw_base_tool_desired[[1]], dw_base_tool_desired[[2]])
+        # print(rot_mat)
+        # small_rot_mat = self.small_rpy_to_rot(0.0001, 0.0002, 0.0001)
+        # print(small_rot_mat)
+        #
+        # hom_mat_base_tool_desired = self.trans_mat_hom(rot_mat, point_a)
+        ''' 
+        EAA can handle all but sigma=pi
+        '''
+        # print(rot_mat)
+        # eaa_axis = self.eaa_calc(rot_mat)
+        # print(eaa_axis)
         ''' 
         Rot matrix conventional
         '''
@@ -204,6 +345,7 @@ class gcs_node:
         First line is a method for doing it with specific values, below is a general case. 
         '''
         # t_base_tcp = self.t_base_tcp_test()
+        #
         # tbase1 = self.trans_mat_hom(self.rpy_to_rot(0, 0, math.pi / 2), np.array([1.2, 2.3, -3.5]))  # revolute
         # t12 = self.trans_mat_hom(self.rpy_to_rot(-math.pi / 2, 0, 0), np.array([0, 0, 4]))  # prismatic
         # t2tool = self.trans_mat_hom(self.rpy_to_rot(0, 0, 0), np.array([0, 0, 2]))
@@ -213,6 +355,7 @@ class gcs_node:
         # q1 = self.trans_mat_hom(self.rpy_to_rot(0, 0, 0), np.array([0, 0, state_vector[1]]))
         # trans_mat_array = [tbase1, t12, t2tool]
         # state_vector_array = [qbase, q1]
+        #
         # t_base_tcp = self.t_base_tcp(trans_mat_array, len(trans_mat_array), state_vector_array, len(state_vector))
         # print("t_base_tcp: ", t_base_tcp)
 
